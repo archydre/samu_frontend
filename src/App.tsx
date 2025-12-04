@@ -33,7 +33,7 @@ function App() {
         </p>
         {accidentLocation && (
           <p className="mt-2 text-green-700">
-            Último Acidente: [{accidentLocation[0].toFixed(10)}, Lng{" "}
+            Último Acidente: [{accidentLocation[0].toFixed(10)},{" "}
             {accidentLocation[1].toFixed(10)}]
           </p>
         )}
