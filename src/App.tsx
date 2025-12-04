@@ -18,13 +18,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 const hospital2Coords: LatLngTuple = [-5.1995, -37.341];
 
-const rotaSimulada: LatLngTuple[] = [
-  [-5.188, -37.35],
-  [-5.192, -37.34],
-];
-
 function App() {
-  const [coordinate, setCoordinate] = useState<LatLngTuple>();
   const [accidentLocation, setAccidentLocation] = useState<
     LatLngTuple | undefined
   >([-5.189724416376373, -37.364884819909065]);
