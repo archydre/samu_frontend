@@ -1,18 +1,10 @@
 import { useState } from "react";
-import {
-  MapContainer,
-  Marker,
-  Popup,
-  TileLayer,
-  Polyline,
-} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import type { LatLngTuple } from "leaflet";
 import Map from "./components/Map";
-import LocationFinder from "./components/LocationFinder";
 
 let DefaultIcon = L.icon({
   iconUrl: icon,

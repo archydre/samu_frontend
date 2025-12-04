@@ -1,6 +1,5 @@
 import { useMapEvents } from "react-leaflet";
 import type { LatLngTuple } from "leaflet";
-import React from "react";
 
 /**
  * Componente invisível que escuta eventos de clique no mapa.
