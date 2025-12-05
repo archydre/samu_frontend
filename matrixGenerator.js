@@ -1,0 +1,1 @@
+import { COORDS } from "./dots";
