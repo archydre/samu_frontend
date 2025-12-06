@@ -1,4 +1,3 @@
-import { useMemo, useRef } from "react";
 import {
   MapContainer,
   Marker,
@@ -48,8 +47,6 @@ function Map({
   accidentLocation?: LatLngTuple;
 }) {
   const showRoute = route!.length > 2;
-
-  const markerRef = useRef<L.Marker>(null);
 
   return (
     <MapContainer
