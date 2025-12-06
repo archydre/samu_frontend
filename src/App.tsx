@@ -77,6 +77,7 @@ function App() {
 
   useEffect(() => {
     handleButtonClick();
+    console.log(accident);
   }, []);
 
   // REMOVIDO O IF DE RETURN ANTECIPADO AQUI
