@@ -75,7 +75,7 @@ function AmbulanceMarker({ route }: { route: LatLngTuple[] }) {
     // CONFIGURAÇÃO DA VELOCIDADE
     // Aumente para ir mais rápido, diminua para ir mais devagar.
     // 0.05 significa que ele percorre 5% do segmento por frame (~20 frames por segmento)
-    const speed = 0.05;
+    const speed = 0.008;
 
     const animate = () => {
       // Se chegou ao fim da rota completa, para a animação
