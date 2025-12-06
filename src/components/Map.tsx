@@ -11,15 +11,10 @@ import L from "leaflet";
 import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import type { LatLngTuple } from "leaflet";
-import LocationFinder from "./LocationFinder"; // Garante a importação
-// Importe AmbulanceMarker se ele estiver em um arquivo separado
-// import { AmbulanceMarker } from "./AmbulanceMarker";
 
-// Central SAMU (Origem fixa)
-const start: LatLngTuple = [-5.1845, -37.336];
+const start: LatLngTuple = [-5.1819654036, -37.3452597857];
 
-// Configuração do ícone (mantida do App.tsx para este componente funcionar,
-// embora deva ser feita uma vez no ponto de entrada).
+// Configuração do ícone padrão azul (Mantida)
 let DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -30,37 +25,31 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const ACCIDENT_ICON_URL =
+  "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png";
+
+// 🆕 NOVO ÍCONE PARA O ACIDENTE (Vermelho)
+const AccidentIcon = L.icon({
+  iconUrl: ACCIDENT_ICON_URL, // <-- Usando o URL direto
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 function Map({
   route,
   nearestHospital,
-  acidenteLocation, // Adicionado para visualizar o ponto clicado
-  onLocationSelect, // Adicionado para capturar o clique
+  accidentLocation,
 }: {
-  route?: LatLngTuple[];
-  nearestHospital: LatLngTuple;
-  acidenteLocation: LatLngTuple | undefined; // Novo prop para o local do acidente
-  onLocationSelect: (coords: LatLngTuple) => void;
+  route: LatLngTuple[];
+  nearestHospital?: LatLngTuple;
+  accidentLocation?: LatLngTuple;
 }) {
-  // CRIAÇÃO DO CAMINHO COMPLETO: [SAMU, ...Rota Intermediária, Hospital]
-  const routePath: LatLngTuple[] = [start, ...(route || []), nearestHospital];
-
-  const showRoute = routePath.length > 2;
+  const showRoute = route!.length > 2;
 
   const markerRef = useRef<L.Marker>(null);
-
-  const eventHandlers = useMemo(
-    () => ({
-      dragend() {
-        const marker = markerRef.current;
-        if (marker != null) {
-          const newCoords = marker.getLatLng();
-          // CHAMA O HANDLER: Isso é o que atualiza o estado do App.tsx
-          onLocationSelect([newCoords.lat, newCoords.lng]);
-        }
-      },
-    }),
-    [onLocationSelect] // Dependência no handler do App.tsx
-  );
 
   return (
     <MapContainer
@@ -74,44 +63,33 @@ function Map({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      <LocationFinder onLocationSelect={onLocationSelect} />
-
       {/* 1. COMPONENTE POLYLINE PARA TRAÇAR A ROTA */}
       {showRoute && (
-        <Polyline positions={routePath} color="red" weight={3} opacity={0.8}>
+        <Polyline positions={route} color="red" weight={3} opacity={0.8}>
           <Popup>
             Rota Completa: SAMU {"->"} Acidente {"->"} Hospital
           </Popup>
         </Polyline>
       )}
 
-      {/* 2. MARCADOR DA CENTRAL DO SAMU */}
+      {/* 2. MARCADOR DA CENTRAL DO SAMU (Usa o ícone padrão) */}
       {route && (
         <Marker position={start}>
           <Popup>Central SAMU (Origem da Rota)</Popup>
         </Marker>
       )}
 
-      {/* 3. MARCADOR DO HOSPITAL */}
-      {route && (
+      {/* 3. MARCADOR DO HOSPITAL (Usa o ícone padrão) */}
+      {nearestHospital && (
         <Marker position={nearestHospital}>
           <Popup>Hospital Regional Tarcísio Maia (Destino da Rota)</Popup>
         </Marker>
       )}
 
-      {/* 4. MARCADOR DO ACIDENTE CLICADO */}
-      {acidenteLocation && (
-        <Marker
-          draggable={true} // Isso o torna arrastável
-          eventHandlers={eventHandlers} // Isso captura o evento de soltar
-          position={acidenteLocation}
-          ref={markerRef}
-        >
-          <Popup>
-            🚨 Local do Acidente. Arraste para reposicionar! <br />
-            Lat: {acidenteLocation[0].toFixed(4)}, Lng:{" "}
-            {acidenteLocation[1].toFixed(10)}
-          </Popup>
+      {/* 4. MARCADOR DO ACIDENTE (USA O NOVO ÍCONE VERMELHO) */}
+      {accidentLocation && (
+        <Marker position={accidentLocation} icon={AccidentIcon}>
+          <Popup>Acidente</Popup>
         </Marker>
       )}
 
