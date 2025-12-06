@@ -21,94 +21,96 @@ L.Marker.prototype.options.icon = DefaultIcon;
 function App() {
   const [accident, setAccident] = useState<Accident | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  const [path, setPath] = useState<LatLngTuple[]>();
+  // Inicialize com array vazio para não quebrar o Map na primeira renderização
+  const [path, setPath] = useState<LatLngTuple[]>([]);
   const [nearestHospital, setNearestHospital] = useState<LatLngTuple>();
   const [ocurrenceVertex, setOcurrenceVertex] = useState<LatLngTuple>();
 
-  // ...
+  // ... (função vertexToCoordPath mantém igual) ...
   const vertexToCoordPath = (
     vertexPath: number[],
     coordsArray: LatLngTuple[]
   ): LatLngTuple[] => {
-    return (
-      vertexPath
-        .map((vertexIndex) => coordsArray[vertexIndex])
-        // O filtro resolve o problema do índice ser undefined (ou out-of-bounds)
-        .filter(
-          (coord): coord is LatLngTuple => coord !== undefined && coord !== null
-        )
-    );
+    return vertexPath
+      .map((vertexIndex) => coordsArray[vertexIndex])
+      .filter(
+        (coord): coord is LatLngTuple => coord !== undefined && coord !== null
+      );
   };
-  // ...
 
   const handleButtonClick = () => {
     setLoading(true);
 
-    fetchOcurrence().then((data: Accident) => {
-      setAccident(data);
-      setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
+    fetchOcurrence()
+      .then((data: Accident) => {
+        setAccident(data);
+        // ... (lógica de processamento mantém igual) ...
+        const occurrenceCoord = COORDS[data.ocourrenceVertex];
+        setOcurrenceVertex(
+          occurrenceCoord ? (occurrenceCoord as LatLngTuple) : undefined
+        );
 
-      // CORREÇÃO ESSENCIAL: Verificação defensiva para a coordenada de ocorrência
-      const occurrenceCoord = COORDS[data.ocourrenceVertex];
-      console.log("ocorreu em ", occurrenceCoord);
-      setOcurrenceVertex(
-        occurrenceCoord ? (occurrenceCoord as LatLngTuple) : undefined
-      );
+        setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
 
-      // CORREÇÃO: Usar arrays vazios como fallback se os dados vierem como undefined/null
-      const safeOcurrencePath = data.toOcurrencePath || [];
-      const safeToHospitalPath = data.toHospitalPath || [];
+        const safeOcurrencePath = data.toOcurrencePath || [];
+        const safeToHospitalPath = data.toHospitalPath || [];
+        const pathFromOcurrenceToHospital = safeToHospitalPath.slice(1);
 
-      // Remove o vértice de ocorrência duplicado, que é o primeiro em toHospitalPath
-      const pathFromOcurrenceToHospital = safeToHospitalPath.slice(1);
+        const vertexIndices = [
+          ...safeOcurrencePath,
+          ...pathFromOcurrenceToHospital,
+        ];
 
-      const vertexIndices = [
-        ...safeOcurrencePath,
-        ...pathFromOcurrenceToHospital,
-      ];
+        const coordPath = vertexToCoordPath(
+          vertexIndices,
+          COORDS as LatLngTuple[]
+        );
 
-      const coordPath = vertexToCoordPath(
-        vertexIndices,
-        COORDS as LatLngTuple[]
-      );
-
-      // Define o estado 'path' com o array de coordenadas
-      setPath(coordPath);
-      setLoading(false);
-    });
+        setPath(coordPath);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false); // Garante que o loading para mesmo com erro
+      });
   };
 
   useEffect(() => {
     handleButtonClick();
   }, []);
 
-  if (loading || !accident || !path) {
-    return <p>Carregando mapa e dados da rota...</p>;
-  }
+  // REMOVIDO O IF DE RETURN ANTECIPADO AQUI
 
   return (
-    // Estrutura robusta para Tailwind: flex-col e h-screen para o pai
     <div className="flex flex-col h-screen">
-      <div className="p-4 bg-gray-100 shadow-md flex justify-between align-center">
-        <div>
+      <div className="p-4 bg-gray-100 shadow-md flex justify-between items-center">
+        <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold">Visualização SAMU</h1>
+          {/* Exibe o status aqui sem remover o mapa */}
+          {loading && (
+            <span className="text-blue-600 text-sm animate-pulse">
+              Atualizando rota...
+            </span>
+          )}
         </div>
+
         <button
-          onClick={handleButtonClick} // Ação no click
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" // Adicionando alguns estilos básicos para o botão
+          onClick={handleButtonClick}
+          className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ${
+            loading ? "opacity-50 cursor-not-allowed" : ""
+          }`}
           disabled={loading}
         >
-          {loading ? "Sorteando..." : "Sortear Vértice"}
+          {loading ? "Calculando..." : "Sortear Vértice"}
         </button>
       </div>
 
-      {/* CONTÊINER DO MAPA: flex-grow garante que ele ocupa o espaço restante */}
-      <div className="flex-grow w-full">
+      <div className="flex-grow w-full relative">
+        {/* O Map é renderizado mesmo se path estiver vazio */}
         <Map
-          // CORREÇÃO 3: Passar o caminho de coordenadas (path) para o componente Map
-          route={path}
+          route={path || []} // Garante array vazio se for undefined
           nearestHospital={nearestHospital}
-          accidentLocation={ocurrenceVertex} // Passa o estado atual
+          accidentLocation={ocurrenceVertex}
         />
       </div>
     </div>
