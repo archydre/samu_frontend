@@ -7,10 +7,13 @@ const TEAM_MEMBERS = [
   "Ruan V. F. Fernandes",
 ];
 
+// URL do Logo Oficial (SVG Transparente)
+const SAMU_LOGO_URL = "samu.png";
+
 interface HeaderProps {
   loading: boolean;
   executionTime?: number;
-  onRandomize: () => void; // Nova prop
+  onRandomize: () => void;
 }
 
 export default function Header({
@@ -24,28 +27,23 @@ export default function Header({
         {/* --- LINHA SUPERIOR (Mobile) / ESQUERDA (Desktop) --- */}
         <div className="flex w-full items-center justify-between md:w-auto">
           {/* Logo e Título */}
-          <div className="flex min-w-0 items-center gap-2 md:gap-3 select-none">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg shadow-blue-600/20">
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
+          <div className="flex min-w-0 items-center gap-3 select-none">
+            {/* LOGO SAMU */}
+            <div className="shrink-0 transition-transform hover:scale-105">
+              <img
+                src={SAMU_LOGO_URL}
+                alt="Logo SAMU 192"
+                className="h-10 w-auto object-contain drop-shadow-sm filter"
+              />
             </div>
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 truncate">
-                SAMU
+
+            {/* TEXTOS - Nome mais atrativo */}
+            <div className="flex flex-col justify-center min-w-0">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-blue-600 truncate">
+                Sistema Inteligente
               </span>
-              <h1 className="text-sm font-bold text-gray-900 truncate">
-                Visualização
+              <h1 className="text-base font-bold text-gray-900 leading-tight truncate tracking-tight">
+                Otimizador de Rotas
               </h1>
             </div>
           </div>
@@ -92,7 +90,7 @@ export default function Header({
   );
 }
 
-// Botão de Sortear (Responsivo)
+// Botão de Sortear (Mantido igual, apenas re-renderizado)
 function RandomizeButton({
   onClick,
   loading,
@@ -115,8 +113,8 @@ function RandomizeButton({
         }
         ${
           mobile
-            ? "h-8 w-8 bg-gray-50 border border-gray-200" // Mobile: Quadrado, ícone apenas
-            : "px-3 py-1.5 text-xs bg-white border border-gray-200 shadow-sm hover:border-blue-200 hover:shadow-blue-600/10" // Desktop: Botão completo
+            ? "h-8 w-8 bg-gray-50 border border-gray-200"
+            : "px-3 py-1.5 text-xs bg-white border border-gray-200 shadow-sm hover:border-blue-200 hover:shadow-blue-600/10"
         }
       `}
       title="Sortear novo vértice"
@@ -153,7 +151,7 @@ function StatusBadge({
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
           <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
         </span>
-        <span>Processando</span>
+        <span>Calculando Rota...</span>
       </div>
     );
   }
@@ -166,7 +164,7 @@ function StatusBadge({
           {executionTime.toFixed(2)}ms
         </span>
       ) : (
-        <span>Pronto</span>
+        <span>Sistema Online</span>
       )}
     </div>
   );
