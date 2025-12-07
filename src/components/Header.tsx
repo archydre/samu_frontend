@@ -25,7 +25,7 @@ function Header({ loading }: { loading: boolean }) {
         {/* Adicionado um label para clareza */}
         <p>Zaqueu Nilton de Souza Paiva</p>
         <p>Francisco Genyson Alves Bezerra</p>
-        <p>Arthut Nathan De Oliveira Leite</p>
+        <p>Arthur Nathan De Oliveira Leite</p>
         <p>Ruan Varsew Fonseca Fernandes</p>
       </div>
     </div>
