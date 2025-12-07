@@ -13,6 +13,7 @@ import {
 import COORDS from "../dots.json";
 import Header from "./components/Header";
 
+// Configuração do ícone do Leaflet...
 let DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -30,11 +31,11 @@ function App() {
   const [nearestHospital, setNearestHospital] = useState<LatLngTuple>();
   const [ocurrenceVertex, setOcurrenceVertex] = useState<LatLngTuple>();
   const [selectedIndex, setSelectedIndex] = useState<number | undefined>();
-  // Estado para o índice de parada DENTRO do array 'path'
   const [routeAccidentIndex, setRouteAccidentIndex] = useState<
     number | undefined
   >();
 
+  // ... (vertexToCoordPath e processAccidentData mantidos iguais) ...
   const vertexToCoordPath = (
     vertexPath: number[],
     coordsArray: LatLngTuple[]
@@ -46,44 +47,33 @@ function App() {
       );
   };
 
-  /**
-   * Processa os dados da rota e atualiza todos os estados relevantes.
-   */
   const processAccidentData = (data: Accident) => {
-    // 1. Definições de caminhos
     const safeOcurrencePath = data.toOcurrencePath || [];
     const safeToHospitalPath = data.toHospitalPath || [];
-
-    // ✅ O índice do acidente na ROTA é o comprimento do array de ida menos 1.
     const accidentIndexInRoute = safeOcurrencePath.length - 1;
-
-    // Remove o primeiro elemento da rota do hospital (que já é o acidente)
     const pathFromOcurrenceToHospital = safeToHospitalPath.slice(1);
-
     const vertexIndices = [
       ...safeOcurrencePath,
       ...pathFromOcurrenceToHospital,
     ];
-
     const coordPath = vertexToCoordPath(vertexIndices, COORDS as LatLngTuple[]);
 
-    // 2. Atualização de estados
-    setSelectedIndex(data.ocourrenceVertex); // Vértice no COORDS (para cor do ponto)
+    console.log(accident);
+
+    setSelectedIndex(data.ocourrenceVertex);
     setAccident(data);
     setOcurrenceVertex(COORDS[data.ocourrenceVertex] as LatLngTuple);
     setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
     setPath(coordPath);
-
-    // Atualiza o índice de parada para a animação
     setRouteAccidentIndex(accidentIndexInRoute);
-
     setLoading(false);
   };
+  // ... (fim das funções auxiliares)
 
   const handleButtonClick = () => {
     setLoading(true);
     fetchOcurrence()
-      .then(processAccidentData) // Reutiliza a função
+      .then(processAccidentData)
       .catch((err) => {
         console.error(err);
         setLoading(false);
@@ -92,12 +82,11 @@ function App() {
 
   useEffect(() => {
     handleButtonClick();
-    console.log(accident);
+    // Removido console.log(accident) daqui pois o state não atualiza imediatamente após mount
   }, []);
 
   const handleNodeSelect = async (vertexIndex: number) => {
     console.log("Novo destino selecionado:", vertexIndex);
-    // Adicionado tratamento de erro para vértices
     if (vertexIndex === 105 || vertexIndex === 66 || vertexIndex === 2) {
       console.log("Vértice ignorado.");
       return;
@@ -107,7 +96,7 @@ function App() {
 
     try {
       const data = await fetchOcurrenceByVertex(vertexIndex);
-      processAccidentData(data); // Processa os dados da nova rota
+      processAccidentData(data);
     } catch (error) {
       console.error("Erro ao buscar rota:", error);
       setLoading(false);
@@ -115,30 +104,25 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="p-4 bg-gray-100 shadow-md flex justify-between items-center">
-        {/* Componente Header */}
-        <Header loading={loading} />
-
-        {/* ✅ O BOTÃO DE VOLTA AQUI */}
-        <button
-          onClick={handleButtonClick}
-          className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ${
-            loading ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-          disabled={loading}
-        >
-          {loading ? "Calculando..." : "Sortear Vértice"}
-        </button>
-      </div>
+    <div className="flex flex-col h-screen overflow-hidden">
+      {/* 1. Removemos a div wrapper (p-4 bg-gray-100...) 
+          2. Passamos 'handleButtonClick' para a prop 'onRandomize'
+          3. Tentei passar o executionTime se ele existir no objeto 'accident'
+      */}
+      <Header
+        loading={loading}
+        onRandomize={handleButtonClick}
+        // Se o seu objeto Accident tiver um campo de tempo, passe aqui. Ex:
+        // executionTime={accident?.executionTime}
+      />
 
       <div className="flex-grow w-full relative">
         <Map
           route={path || []}
           nearestHospital={nearestHospital}
           accidentLocation={ocurrenceVertex}
-          selectedIndex={selectedIndex} // Índice do COORDS (para cor)
-          accidentIndex={routeAccidentIndex} // Índice da ROTA (para pausa da ambulância)
+          selectedIndex={selectedIndex}
+          accidentIndex={routeAccidentIndex}
           onNodeSelect={handleNodeSelect}
         />
       </div>

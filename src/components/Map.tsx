@@ -1,76 +1,68 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import {
   MapContainer,
   Marker,
   Popup,
   TileLayer,
   Polyline,
-  CircleMarker, // <--- 1. Importar CircleMarker
+  CircleMarker,
+  useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import type { LatLngTuple } from "leaflet";
-import { FaAmbulance } from "react-icons/fa";
 import { renderToStaticMarkup } from "react-dom/server";
+import {
+  FaAmbulance,
+  FaHospital,
+  FaExclamationTriangle,
+  FaBuilding,
+  FaMapMarkerAlt,
+} from "react-icons/fa";
 import COORDS from "../../dots.json";
 
-const start: LatLngTuple = [-5.1819654036, -37.3452597857];
+const START_POS: LatLngTuple = [-5.1819654036, -37.3452597857];
 
-// --- CONFIGURAÇÃO DOS ÍCONES ---
+// --- 1. GERADOR DE ÍCONES MODERNOS (HTML/TAILWIND) ---
+// Cria ícones redondos, com sombra e borda branca, estilo "App Moderno"
+const createModernIcon = (
+  icon: React.ReactNode,
+  bgColorClass: string,
+  pulse: boolean = false
+) => {
+  const html = renderToStaticMarkup(
+    <div
+      className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-white shadow-lg ${bgColorClass}`}
+    >
+      {pulse && (
+        <span
+          className={`absolute -inset-1 z-0 animate-ping rounded-full opacity-75 ${bgColorClass}`}
+        ></span>
+      )}
+      <div className="z-10 text-white text-sm">{icon}</div>
+    </div>
+  );
 
-// 1. Ícone Padrão (Azul)
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+  return L.divIcon({
+    html: html,
+    className: "bg-transparent", // Remove fundo padrão do leaflet
+    iconSize: [32, 32],
+    iconAnchor: [16, 32], // Centralizado na horizontal, ponta embaixo
+    popupAnchor: [0, -34],
+  });
+};
 
-// 2. Ícone de Acidente (Vermelho)
-const ACCIDENT_ICON_URL =
-  "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png";
+// Ícones Estáticos
+const BaseIcon = createModernIcon(<FaBuilding />, "bg-slate-700");
+const HospitalIcon = createModernIcon(<FaHospital />, "bg-emerald-500");
+const AccidentIcon = createModernIcon(<FaExclamationTriangle />, "bg-red-500");
+const TargetIcon = createModernIcon(<FaMapMarkerAlt />, "bg-blue-500", true); // Ícone pulsante para seleção
 
-const AccidentIcon = L.icon({
-  iconUrl: ACCIDENT_ICON_URL,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+// Ícones Dinâmicos (Ambulância)
+const AmbulanceEmptyIcon = createModernIcon(<FaAmbulance />, "bg-blue-600");
+const AmbulancePatientIcon = createModernIcon(<FaAmbulance />, "bg-orange-500"); // Laranja para diferenciar volta
 
-// 3. Ícone da Ambulância
-const ambulanceMarkup = renderToStaticMarkup(
-  <FaAmbulance style={{ fontSize: "30px", color: "black" }} />
-);
-
-const AmbulanceIcon = L.divIcon({
-  html: ambulanceMarkup,
-  className: "bg-transparent",
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
-  popupAnchor: [0, -15],
-});
-
-const patientAmbulanceMarkup = renderToStaticMarkup(
-  <FaAmbulance style={{ fontSize: "30px", color: "red" }} /> // Cor vermelha ou diferente
-);
-
-const PatientAmbulanceIcon = L.divIcon({
-  html: patientAmbulanceMarkup,
-  className: "bg-transparent",
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
-  popupAnchor: [0, -15],
-});
-
-// --- COMPONENTE DE ANIMAÇÃO ---
-// --- COMPONENTE DE ANIMAÇÃO ---
+// --- COMPONENTE DE ANIMAÇÃO DA AMBULÂNCIA ---
 function AmbulanceMarker({
   route,
   accidentIndex,
@@ -79,8 +71,9 @@ function AmbulanceMarker({
   accidentIndex: number | undefined;
 }) {
   const markerRef = useRef<L.Marker>(null);
-  const PAUSE_TIME = 3000;
+  const PAUSE_TIME = 2000; // Tempo de resgate
   const timeoutIdRef = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!markerRef.current || route.length < 2) return;
@@ -88,8 +81,12 @@ function AmbulanceMarker({
     const marker = markerRef.current;
     let segmentIndex = 0;
     let progress = 0;
-    let animationId: number;
-    const speed = 0.008;
+    // Aumentei um pouco a velocidade para parecer mais fluido
+    const speed = 0.015;
+
+    // Reinicia ícone e posição
+    marker.setIcon(AmbulanceEmptyIcon);
+    marker.setLatLng(route[0]);
 
     const animate = () => {
       if (segmentIndex >= route.length - 1) return;
@@ -104,60 +101,65 @@ function AmbulanceMarker({
         segmentIndex++;
         marker.setLatLng(endPoint);
 
-        // 🛑 LÓGICA DE PAUSA
+        // 🛑 Lógica de Pausa no Acidente
         if (accidentIndex !== undefined && segmentIndex === accidentIndex) {
-          console.log(`Ambulância chegou ao acidente. Pausando...`);
-
+          // Pausa animação
           timeoutIdRef.current = window.setTimeout(() => {
-            // ✅ AQUI É O PONTO CHAVE: Troca o ícone após a pausa
-            marker.setIcon(PatientAmbulanceIcon); // Define o novo ícone
-
-            // Recomeça a animação
+            // Troca ícone para "Com Paciente"
+            marker.setIcon(AmbulancePatientIcon);
+            // Continua
             if (segmentIndex < route.length - 1) {
-              animationId = requestAnimationFrame(animate);
+              animationFrameRef.current = requestAnimationFrame(animate);
             }
           }, PAUSE_TIME);
-
-          return;
+          return; // Sai do loop atual para esperar o timeout
         }
       } else {
-        // Movimento suave
+        // Interpolação Linear para suavidade
         const lat = startPoint[0] + (endPoint[0] - startPoint[0]) * progress;
         const lng = startPoint[1] + (endPoint[1] - startPoint[1]) * progress;
         marker.setLatLng([lat, lng]);
       }
 
-      animationId = requestAnimationFrame(animate);
+      animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    // Certifica-se de que o ícone inicial é o AmbulanceIcon padrão
-    marker.setIcon(AmbulanceIcon);
-    marker.setLatLng(route[0]);
-    animationId = requestAnimationFrame(animate);
+    animationFrameRef.current = requestAnimationFrame(animate);
 
     return () => {
-      cancelAnimationFrame(animationId);
-      if (timeoutIdRef.current) {
-        window.clearTimeout(timeoutIdRef.current);
-      }
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
+      if (timeoutIdRef.current) window.clearTimeout(timeoutIdRef.current);
     };
   }, [route, accidentIndex]);
 
-  // A posição inicial agora deve ser configurada no useEffect, mas o Marker precisa de uma posição inicial
   return (
     <Marker
       ref={markerRef}
       position={route[0]}
-      icon={AmbulanceIcon} // Ícone inicial
-      zIndexOffset={1000}
+      icon={AmbulanceEmptyIcon}
+      zIndexOffset={1000} // Ambulância sempre por cima
     >
-      <Popup>Ambulância em deslocamento</Popup>
+      <Popup className="font-sans text-xs font-semibold">
+        Viatura em deslocamento
+      </Popup>
     </Marker>
   );
 }
 
-// --- COMPONENTE PRINCIPAL DO MAPA ---
+// --- UTILITÁRIO PARA AJUSTAR ZOOM (Opcional, melhora UX) ---
+function AutoZoom({ route }: { route: LatLngTuple[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (route.length > 0) {
+      const bounds = L.latLngBounds(route);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [route, map]);
+  return null;
+}
 
+// --- COMPONENTE PRINCIPAL DO MAPA ---
 function Map({
   route,
   nearestHospital,
@@ -175,67 +177,117 @@ function Map({
 }) {
   const showRoute = route && route.length > 2;
 
+  // Filtragem visual dos pontos para performance e estética
+  // Renderizamos apenas pontos NÃO selecionados como CircleMarkers simples
+  // O ponto selecionado vira um Marker especial
+  const otherPoints = useMemo(() => {
+    return COORDS.map((coord, index) => {
+      if (index === selectedIndex) return null; // Não renderiza o selecionado aqui
+      return (
+        <CircleMarker
+          key={index}
+          center={coord as LatLngTuple}
+          radius={4} // Menor para ficar elegante
+          pathOptions={{
+            color: "transparent", // Sem borda
+            fillColor: "#0a6ffbff", // Slate-400 (Cinza neutro)
+            fillOpacity: 0.5,
+          }}
+          eventHandlers={{
+            click: () => onNodeSelect && onNodeSelect(index),
+            mouseover: (e) =>
+              e.target.setStyle({
+                fillColor: "#3b82f6",
+                fillOpacity: 1,
+                radius: 6,
+              }), // Hover effect azul
+            mouseout: (e) =>
+              e.target.setStyle({
+                fillColor: "#94a3b8",
+                fillOpacity: 0.5,
+                radius: 4,
+              }),
+          }}
+        />
+      );
+    });
+  }, [selectedIndex, onNodeSelect]);
+
   return (
     <MapContainer
-      center={start}
+      center={START_POS}
       zoom={14}
       scrollWheelZoom={true}
-      style={{ height: "100%", width: "100%" }}
+      className="h-full w-full bg-slate-50" // Fundo cinza claro caso o tile demore
+      zoomControl={false} // Vamos reposicionar ou usar padrão
     >
+      {/* MUDANÇA VISUAL 1: CartoDB Positron 
+         Um mapa cinza claro, limpo, que faz as rotas coloridas saltarem aos olhos.
+      */}
       <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
 
+      {/* Auto zoom na rota ativa */}
+      {showRoute && <AutoZoom route={route} />}
+
+      {/* Rota (Linha) */}
       {showRoute && (
-        <Polyline positions={route} color="red" weight={3} opacity={0.6}>
-          <Popup>Rota Completa</Popup>
-        </Polyline>
+        <>
+          {/* Linha de fundo (borda) para contraste */}
+          <Polyline positions={route} color="white" weight={6} opacity={0.8} />
+          {/* Linha principal Azul SAMU */}
+          <Polyline
+            positions={route}
+            color="#2563eb"
+            weight={3}
+            opacity={0.9}
+            dashArray="1, 0"
+          />
+
+          <AmbulanceMarker route={route} accidentIndex={accidentIndex} />
+        </>
       )}
 
-      {showRoute ? (
-        // ✅ 1. CORREÇÃO: Passando o 'accidentIndex' (índice da ROTA)
-        <AmbulanceMarker route={route} accidentIndex={accidentIndex} />
-      ) : (
-        <Marker position={start} icon={AmbulanceIcon}>
-          <Popup>Central SAMU (Aguardando chamado)</Popup>
+      {/* Marcador da Base (Sempre visível se não tiver rota ativa saindo dele, ou sempre visível mesmo) */}
+      <Marker position={START_POS} icon={BaseIcon}>
+        <Popup>Central SAMU</Popup>
+      </Marker>
+
+      {/* Pontos clicáveis do grafo (Discretos) */}
+      {otherPoints}
+
+      {/* Marcador de Destino/Seleção (Pulsante) */}
+      {selectedIndex !== undefined && (
+        <Marker
+          position={COORDS[selectedIndex] as LatLngTuple}
+          icon={TargetIcon}
+          zIndexOffset={500}
+        >
+          {/* Popup abre automático se quiser, ou apenas no clique */}
         </Marker>
       )}
 
-      {/* 3. Renderização dos pontos do dots.json */}
-      {COORDS.map((coord, index) => {
-        const isSelected = selectedIndex === index;
-        const color = isSelected ? "red" : "#3388ff";
-
-        return (
-          <CircleMarker
-            key={index}
-            center={coord as LatLngTuple}
-            radius={10} // Tamanho da bolinha
-            pathOptions={{
-              color: color,
-              fillColor: color, // ✅ 2. CORREÇÃO: Usa a cor condicional também no preenchimento
-              fillOpacity: 0.7, // Aumenta a opacidade para destacar
-            }}
-            eventHandlers={{
-              click: () => {
-                console.log(`Vértice clicado: ${index}`);
-                if (onNodeSelect) onNodeSelect(index);
-              },
-            }}
-          ></CircleMarker>
-        );
-      })}
-
+      {/* Hospital */}
       {nearestHospital && (
-        <Marker position={nearestHospital}>
-          <Popup>Hospital</Popup>
+        <Marker
+          position={nearestHospital}
+          icon={HospitalIcon}
+          zIndexOffset={900}
+        >
+          <Popup>Hospital Mais Próximo</Popup>
         </Marker>
       )}
 
+      {/* Acidente (Fixo) */}
       {accidentLocation && (
-        <Marker position={accidentLocation} icon={AccidentIcon}>
-          <Popup>Local do Acidente</Popup>
+        <Marker
+          position={accidentLocation}
+          icon={AccidentIcon}
+          zIndexOffset={900}
+        >
+          <Popup>Local da Ocorrência</Popup>
         </Marker>
       )}
     </MapContainer>
