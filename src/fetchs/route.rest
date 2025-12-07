@@ -1,0 +1,6 @@
+POST https://uern-projeto-rotas-samu.onrender.com/api/calcular-rota-completa
+Content-Type: application/json
+
+{
+    "ocurrence": 21
+}

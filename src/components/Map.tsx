@@ -5,6 +5,7 @@ import {
   Popup,
   TileLayer,
   Polyline,
+  CircleMarker, // <--- 1. Importar CircleMarker
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -13,6 +14,7 @@ import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import type { LatLngTuple } from "leaflet";
 import { FaAmbulance } from "react-icons/fa";
 import { renderToStaticMarkup } from "react-dom/server";
+import COORDS from "../../dots.json";
 
 const start: LatLngTuple = [-5.1819654036, -37.3452597857];
 
@@ -42,7 +44,7 @@ const AccidentIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-// 3. Ícone da Ambulância (React Icon convertido para HTML)
+// 3. Ícone da Ambulância
 const ambulanceMarkup = renderToStaticMarkup(
   <FaAmbulance style={{ fontSize: "30px", color: "black" }} />
 );
@@ -55,65 +57,48 @@ const AmbulanceIcon = L.divIcon({
   popupAnchor: [0, -15],
 });
 
-// --- NOVO COMPONENTE DE ANIMAÇÃO ---
-
-/**
- * Componente que controla a animação da ambulância ao longo da rota.
- */
+// --- COMPONENTE DE ANIMAÇÃO ---
 function AmbulanceMarker({ route }: { route: LatLngTuple[] }) {
   const markerRef = useRef<L.Marker>(null);
 
   useEffect(() => {
-    // Se não houver rota ou marcador, não faz nada
     if (!markerRef.current || route.length < 2) return;
 
     const marker = markerRef.current;
     let segmentIndex = 0;
     let progress = 0;
     let animationId: number;
-
-    // CONFIGURAÇÃO DA VELOCIDADE
-    // Aumente para ir mais rápido, diminua para ir mais devagar.
-    // 0.05 significa que ele percorre 5% do segmento por frame (~20 frames por segmento)
-    const speed = 0.008;
+    const speed = 0.008; // Ajuste a velocidade aqui
 
     const animate = () => {
-      // Se chegou ao fim da rota completa, para a animação
       if (segmentIndex >= route.length - 1) return;
 
       const startPoint = route[segmentIndex];
       const endPoint = route[segmentIndex + 1];
 
-      // Incrementa o progresso no segmento atual
       progress += speed;
 
       if (progress >= 1) {
-        // Se completou o segmento, avança para o próximo
         progress = 0;
         segmentIndex++;
-        marker.setLatLng(endPoint); // Garante que termine exatamente no ponto
+        marker.setLatLng(endPoint);
       } else {
-        // Interpolação Linear (calcula o ponto intermediário)
         const lat = startPoint[0] + (endPoint[0] - startPoint[0]) * progress;
         const lng = startPoint[1] + (endPoint[1] - startPoint[1]) * progress;
         marker.setLatLng([lat, lng]);
       }
 
-      // Continua o loop se ainda houver segmentos
       if (segmentIndex < route.length - 1) {
         animationId = requestAnimationFrame(animate);
       }
     };
 
-    // Posiciona no início e começa a animação
     marker.setLatLng(route[0]);
     animationId = requestAnimationFrame(animate);
 
-    // Limpeza ao desmontar (cancela a animação para não dar erro)
     return () => cancelAnimationFrame(animationId);
   }, [route]);
 
-  // Renderiza o marcador inicialmente na primeira posição da rota
   return (
     <Marker
       ref={markerRef}
@@ -132,10 +117,14 @@ function Map({
   route,
   nearestHospital,
   accidentLocation,
+  onNodeSelect,
+  selectedIndex,
 }: {
   route: LatLngTuple[];
   nearestHospital?: LatLngTuple;
   accidentLocation?: LatLngTuple;
+  onNodeSelect?: (index: number) => void;
+  selectedIndex: number | undefined;
 }) {
   const showRoute = route && route.length > 2;
 
@@ -147,19 +136,16 @@ function Map({
       style={{ height: "100%", width: "100%" }}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {/* Rota (Linha Vermelha) */}
       {showRoute && (
         <Polyline positions={route} color="red" weight={3} opacity={0.6}>
           <Popup>Rota Completa</Popup>
         </Polyline>
       )}
 
-      {/* Se houver rota, mostra a Ambulância Animada. 
-          Se não, mostra a ambulância parada na base. */}
       {showRoute ? (
         <AmbulanceMarker route={route} />
       ) : (
@@ -168,14 +154,38 @@ function Map({
         </Marker>
       )}
 
-      {/* Hospital */}
+      {/* 3. Renderização dos pontos do dots.json */}
+      {COORDS.map((coord, index) => {
+        const isSelected = selectedIndex === index;
+        const color = isSelected ? "red" : "#3388ff";
+
+        return (
+          <CircleMarker
+            key={index}
+            center={coord as LatLngTuple}
+            radius={10} // Tamanho da bolinha
+            pathOptions={{
+              color: color,
+              fillColor: "#3388ff",
+              fillOpacity: 0.5,
+            }}
+            eventHandlers={{
+              click: () => {
+                console.log(`Vértice clicado: ${index}`);
+                // Chama a função do pai se ela existir
+                if (onNodeSelect) onNodeSelect(index);
+              },
+            }}
+          ></CircleMarker>
+        );
+      })}
+
       {nearestHospital && (
         <Marker position={nearestHospital}>
           <Popup>Hospital</Popup>
         </Marker>
       )}
 
-      {/* Acidente */}
       {accidentLocation && (
         <Marker position={accidentLocation} icon={AccidentIcon}>
           <Popup>Local do Acidente</Popup>

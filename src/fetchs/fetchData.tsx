@@ -11,6 +11,8 @@ export interface Accident {
 }
 
 const apiURL = "https://uern-projeto-rotas-samu.onrender.com/api/rota-completa";
+const vertexApiURL =
+  "https://uern-projeto-rotas-samu.onrender.com/api/calcular-rota-completa";
 
 export async function fetchOcurrence(): Promise<Accident> {
   try {
@@ -25,6 +27,32 @@ export async function fetchOcurrence(): Promise<Accident> {
     return data;
   } catch (error) {
     console.error("Falha ao buscar usuários:", error);
+    throw error;
+  }
+}
+
+export async function fetchOcurrenceByVertex(
+  vertex: number
+): Promise<Accident> {
+  try {
+    const response = await fetch(vertexApiURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ocurrence: vertex,
+      }),
+    });
+
+    if (!response.ok) {
+      throw Error("it wasn't possible to reach endpoint");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.log(error);
     throw error;
   }
 }

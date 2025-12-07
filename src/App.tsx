@@ -5,7 +5,11 @@ import icon from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 import type { LatLngTuple } from "leaflet";
 import Map from "./components/Map";
-import { fetchOcurrence, type Accident } from "./fetchs/fetchData";
+import {
+  fetchOcurrence,
+  fetchOcurrenceByVertex,
+  type Accident,
+} from "./fetchs/fetchData";
 import COORDS from "../dots.json";
 
 let DefaultIcon = L.icon({
@@ -25,6 +29,7 @@ function App() {
   const [path, setPath] = useState<LatLngTuple[]>([]);
   const [nearestHospital, setNearestHospital] = useState<LatLngTuple>();
   const [ocurrenceVertex, setOcurrenceVertex] = useState<LatLngTuple>();
+  const [selectedIndex, setSelectedIndex] = useState<number | undefined>();
 
   // ... (função vertexToCoordPath mantém igual) ...
   const vertexToCoordPath = (
@@ -109,9 +114,38 @@ function App() {
       <div className="flex-grow w-full relative">
         {/* O Map é renderizado mesmo se path estiver vazio */}
         <Map
-          route={path || []} // Garante array vazio se for undefined
+          route={path || []}
           nearestHospital={nearestHospital}
           accidentLocation={ocurrenceVertex}
+          selectedIndex={selectedIndex}
+          // Adicione esta prop:
+          onNodeSelect={async (vertexIndex) => {
+            console.log("Novo destino selecionado:", vertexIndex);
+            setSelectedIndex(vertexIndex);
+            fetchOcurrenceByVertex(vertexIndex).then((data) => {
+              setLoading(true);
+              setAccident(data);
+              setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
+              setOcurrenceVertex(COORDS[data.ocourrenceVertex] as LatLngTuple);
+
+              const safeOcurrencePath = data.toOcurrencePath || [];
+              const safeToHospitalPath = data.toHospitalPath || [];
+              const pathFromOcurrenceToHospital = safeToHospitalPath.slice(1);
+
+              const vertexIndices = [
+                ...safeOcurrencePath,
+                ...pathFromOcurrenceToHospital,
+              ];
+
+              const coordPath = vertexToCoordPath(
+                vertexIndices,
+                COORDS as LatLngTuple[]
+              );
+
+              setPath(coordPath);
+              setLoading(false);
+            });
+          }}
         />
       </div>
     </div>
