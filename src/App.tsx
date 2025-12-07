@@ -11,6 +11,7 @@ import {
   type Accident,
 } from "./fetchs/fetchData";
 import COORDS from "../dots.json";
+import Header from "./components/Header";
 
 let DefaultIcon = L.icon({
   iconUrl: icon,
@@ -25,13 +26,15 @@ L.Marker.prototype.options.icon = DefaultIcon;
 function App() {
   const [accident, setAccident] = useState<Accident | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
-  // Inicialize com array vazio para não quebrar o Map na primeira renderização
   const [path, setPath] = useState<LatLngTuple[]>([]);
   const [nearestHospital, setNearestHospital] = useState<LatLngTuple>();
   const [ocurrenceVertex, setOcurrenceVertex] = useState<LatLngTuple>();
   const [selectedIndex, setSelectedIndex] = useState<number | undefined>();
+  // Estado para o índice de parada DENTRO do array 'path'
+  const [routeAccidentIndex, setRouteAccidentIndex] = useState<
+    number | undefined
+  >();
 
-  // ... (função vertexToCoordPath mantém igual) ...
   const vertexToCoordPath = (
     vertexPath: number[],
     coordsArray: LatLngTuple[]
@@ -43,40 +46,47 @@ function App() {
       );
   };
 
+  /**
+   * Processa os dados da rota e atualiza todos os estados relevantes.
+   */
+  const processAccidentData = (data: Accident) => {
+    // 1. Definições de caminhos
+    const safeOcurrencePath = data.toOcurrencePath || [];
+    const safeToHospitalPath = data.toHospitalPath || [];
+
+    // ✅ O índice do acidente na ROTA é o comprimento do array de ida menos 1.
+    const accidentIndexInRoute = safeOcurrencePath.length - 1;
+
+    // Remove o primeiro elemento da rota do hospital (que já é o acidente)
+    const pathFromOcurrenceToHospital = safeToHospitalPath.slice(1);
+
+    const vertexIndices = [
+      ...safeOcurrencePath,
+      ...pathFromOcurrenceToHospital,
+    ];
+
+    const coordPath = vertexToCoordPath(vertexIndices, COORDS as LatLngTuple[]);
+
+    // 2. Atualização de estados
+    setSelectedIndex(data.ocourrenceVertex); // Vértice no COORDS (para cor do ponto)
+    setAccident(data);
+    setOcurrenceVertex(COORDS[data.ocourrenceVertex] as LatLngTuple);
+    setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
+    setPath(coordPath);
+
+    // Atualiza o índice de parada para a animação
+    setRouteAccidentIndex(accidentIndexInRoute);
+
+    setLoading(false);
+  };
+
   const handleButtonClick = () => {
     setLoading(true);
-
     fetchOcurrence()
-      .then((data: Accident) => {
-        setAccident(data);
-        // ... (lógica de processamento mantém igual) ...
-        const occurrenceCoord = COORDS[data.ocourrenceVertex];
-        setOcurrenceVertex(
-          occurrenceCoord ? (occurrenceCoord as LatLngTuple) : undefined
-        );
-
-        setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
-
-        const safeOcurrencePath = data.toOcurrencePath || [];
-        const safeToHospitalPath = data.toHospitalPath || [];
-        const pathFromOcurrenceToHospital = safeToHospitalPath.slice(1);
-
-        const vertexIndices = [
-          ...safeOcurrencePath,
-          ...pathFromOcurrenceToHospital,
-        ];
-
-        const coordPath = vertexToCoordPath(
-          vertexIndices,
-          COORDS as LatLngTuple[]
-        );
-
-        setPath(coordPath);
-        setLoading(false);
-      })
+      .then(processAccidentData) // Reutiliza a função
       .catch((err) => {
         console.error(err);
-        setLoading(false); // Garante que o loading para mesmo com erro
+        setLoading(false);
       });
   };
 
@@ -85,21 +95,32 @@ function App() {
     console.log(accident);
   }, []);
 
-  // REMOVIDO O IF DE RETURN ANTECIPADO AQUI
+  const handleNodeSelect = async (vertexIndex: number) => {
+    console.log("Novo destino selecionado:", vertexIndex);
+    // Adicionado tratamento de erro para vértices
+    if (vertexIndex === 105 || vertexIndex === 66 || vertexIndex === 2) {
+      console.log("Vértice ignorado.");
+      return;
+    }
+    setLoading(true);
+    setSelectedIndex(vertexIndex);
+
+    try {
+      const data = await fetchOcurrenceByVertex(vertexIndex);
+      processAccidentData(data); // Processa os dados da nova rota
+    } catch (error) {
+      console.error("Erro ao buscar rota:", error);
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen">
       <div className="p-4 bg-gray-100 shadow-md flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold">Visualização SAMU</h1>
-          {/* Exibe o status aqui sem remover o mapa */}
-          {loading && (
-            <span className="text-blue-600 text-sm animate-pulse">
-              Atualizando rota...
-            </span>
-          )}
-        </div>
+        {/* Componente Header */}
+        <Header loading={loading} />
 
+        {/* ✅ O BOTÃO DE VOLTA AQUI */}
         <button
           onClick={handleButtonClick}
           className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ${
@@ -112,40 +133,13 @@ function App() {
       </div>
 
       <div className="flex-grow w-full relative">
-        {/* O Map é renderizado mesmo se path estiver vazio */}
         <Map
           route={path || []}
           nearestHospital={nearestHospital}
           accidentLocation={ocurrenceVertex}
-          selectedIndex={selectedIndex}
-          // Adicione esta prop:
-          onNodeSelect={async (vertexIndex) => {
-            console.log("Novo destino selecionado:", vertexIndex);
-            setSelectedIndex(vertexIndex);
-            fetchOcurrenceByVertex(vertexIndex).then((data) => {
-              setLoading(true);
-              setAccident(data);
-              setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
-              setOcurrenceVertex(COORDS[data.ocourrenceVertex] as LatLngTuple);
-
-              const safeOcurrencePath = data.toOcurrencePath || [];
-              const safeToHospitalPath = data.toHospitalPath || [];
-              const pathFromOcurrenceToHospital = safeToHospitalPath.slice(1);
-
-              const vertexIndices = [
-                ...safeOcurrencePath,
-                ...pathFromOcurrenceToHospital,
-              ];
-
-              const coordPath = vertexToCoordPath(
-                vertexIndices,
-                COORDS as LatLngTuple[]
-              );
-
-              setPath(coordPath);
-              setLoading(false);
-            });
-          }}
+          selectedIndex={selectedIndex} // Índice do COORDS (para cor)
+          accidentIndex={routeAccidentIndex} // Índice da ROTA (para pausa da ambulância)
+          onNodeSelect={handleNodeSelect}
         />
       </div>
     </div>

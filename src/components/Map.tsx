@@ -57,9 +57,30 @@ const AmbulanceIcon = L.divIcon({
   popupAnchor: [0, -15],
 });
 
+const patientAmbulanceMarkup = renderToStaticMarkup(
+  <FaAmbulance style={{ fontSize: "30px", color: "red" }} /> // Cor vermelha ou diferente
+);
+
+const PatientAmbulanceIcon = L.divIcon({
+  html: patientAmbulanceMarkup,
+  className: "bg-transparent",
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+  popupAnchor: [0, -15],
+});
+
 // --- COMPONENTE DE ANIMAÇÃO ---
-function AmbulanceMarker({ route }: { route: LatLngTuple[] }) {
+// --- COMPONENTE DE ANIMAÇÃO ---
+function AmbulanceMarker({
+  route,
+  accidentIndex,
+}: {
+  route: LatLngTuple[];
+  accidentIndex: number | undefined;
+}) {
   const markerRef = useRef<L.Marker>(null);
+  const PAUSE_TIME = 3000;
+  const timeoutIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!markerRef.current || route.length < 2) return;
@@ -68,7 +89,7 @@ function AmbulanceMarker({ route }: { route: LatLngTuple[] }) {
     let segmentIndex = 0;
     let progress = 0;
     let animationId: number;
-    const speed = 0.008; // Ajuste a velocidade aqui
+    const speed = 0.008;
 
     const animate = () => {
       if (segmentIndex >= route.length - 1) return;
@@ -82,28 +103,52 @@ function AmbulanceMarker({ route }: { route: LatLngTuple[] }) {
         progress = 0;
         segmentIndex++;
         marker.setLatLng(endPoint);
+
+        // 🛑 LÓGICA DE PAUSA
+        if (accidentIndex !== undefined && segmentIndex === accidentIndex) {
+          console.log(`Ambulância chegou ao acidente. Pausando...`);
+
+          timeoutIdRef.current = window.setTimeout(() => {
+            // ✅ AQUI É O PONTO CHAVE: Troca o ícone após a pausa
+            marker.setIcon(PatientAmbulanceIcon); // Define o novo ícone
+
+            // Recomeça a animação
+            if (segmentIndex < route.length - 1) {
+              animationId = requestAnimationFrame(animate);
+            }
+          }, PAUSE_TIME);
+
+          return;
+        }
       } else {
+        // Movimento suave
         const lat = startPoint[0] + (endPoint[0] - startPoint[0]) * progress;
         const lng = startPoint[1] + (endPoint[1] - startPoint[1]) * progress;
         marker.setLatLng([lat, lng]);
       }
 
-      if (segmentIndex < route.length - 1) {
-        animationId = requestAnimationFrame(animate);
-      }
+      animationId = requestAnimationFrame(animate);
     };
 
+    // Certifica-se de que o ícone inicial é o AmbulanceIcon padrão
+    marker.setIcon(AmbulanceIcon);
     marker.setLatLng(route[0]);
     animationId = requestAnimationFrame(animate);
 
-    return () => cancelAnimationFrame(animationId);
-  }, [route]);
+    return () => {
+      cancelAnimationFrame(animationId);
+      if (timeoutIdRef.current) {
+        window.clearTimeout(timeoutIdRef.current);
+      }
+    };
+  }, [route, accidentIndex]);
 
+  // A posição inicial agora deve ser configurada no useEffect, mas o Marker precisa de uma posição inicial
   return (
     <Marker
       ref={markerRef}
       position={route[0]}
-      icon={AmbulanceIcon}
+      icon={AmbulanceIcon} // Ícone inicial
       zIndexOffset={1000}
     >
       <Popup>Ambulância em deslocamento</Popup>
@@ -119,12 +164,14 @@ function Map({
   accidentLocation,
   onNodeSelect,
   selectedIndex,
+  accidentIndex,
 }: {
   route: LatLngTuple[];
   nearestHospital?: LatLngTuple;
   accidentLocation?: LatLngTuple;
   onNodeSelect?: (index: number) => void;
   selectedIndex: number | undefined;
+  accidentIndex: number | undefined;
 }) {
   const showRoute = route && route.length > 2;
 
@@ -147,7 +194,8 @@ function Map({
       )}
 
       {showRoute ? (
-        <AmbulanceMarker route={route} />
+        // ✅ 1. CORREÇÃO: Passando o 'accidentIndex' (índice da ROTA)
+        <AmbulanceMarker route={route} accidentIndex={accidentIndex} />
       ) : (
         <Marker position={start} icon={AmbulanceIcon}>
           <Popup>Central SAMU (Aguardando chamado)</Popup>
@@ -166,13 +214,12 @@ function Map({
             radius={10} // Tamanho da bolinha
             pathOptions={{
               color: color,
-              fillColor: "#3388ff",
-              fillOpacity: 0.5,
+              fillColor: color, // ✅ 2. CORREÇÃO: Usa a cor condicional também no preenchimento
+              fillOpacity: 0.7, // Aumenta a opacidade para destacar
             }}
             eventHandlers={{
               click: () => {
                 console.log(`Vértice clicado: ${index}`);
-                // Chama a função do pai se ela existir
                 if (onNodeSelect) onNodeSelect(index);
               },
             }}
