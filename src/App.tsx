@@ -58,11 +58,9 @@ function App() {
     ];
     const coordPath = vertexToCoordPath(vertexIndices, COORDS as LatLngTuple[]);
 
-    console.log(accident);
-
-    setSelectedIndex(data.ocourrenceVertex);
+    setSelectedIndex(data.ocurrenceVertex);
     setAccident(data);
-    setOcurrenceVertex(COORDS[data.ocourrenceVertex] as LatLngTuple);
+    setOcurrenceVertex(COORDS[data.ocurrenceVertex] as LatLngTuple);
     setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
     setPath(coordPath);
     setRouteAccidentIndex(accidentIndexInRoute);

@@ -1,5 +1,5 @@
 export interface Accident {
-  ocourrenceVertex: number;
+  ocurrenceVertex: number;
   toOcurrencePath: number[];
   toOcurrenceDistance: number;
 
@@ -23,7 +23,7 @@ export async function fetchOcurrence(): Promise<Accident> {
     }
 
     const data: Accident = await response.json();
-    console.log("data: ", data);
+    console.log("ocurrenceDetails: ", data);
     return data;
   } catch (error) {
     console.error("Falha ao buscar usuários:", error);
@@ -50,6 +50,7 @@ export async function fetchOcurrenceByVertex(
     }
 
     const data = await response.json();
+    console.log("data: ", data);
     return data;
   } catch (error) {
     console.log(error);
