@@ -1,5 +1,5 @@
 import fs from "fs";
-import { COORDS, connections } from "./dots.js";
+import { COORDS, connections } from "./dots.ts";
 
 // 2. FUNÇÃO DE CÁLCULO DE DISTÂNCIA (Fórmula de Haversine)
 function getLeafletStyleDistance(lat1, lon1, lat2, lon2) {
@@ -27,10 +27,10 @@ function deg2rad(deg) {
 // 3. LÓGICA DE GERAÇÃO DA MATRIZ
 const numNodes = COORDS.length;
 
-// Inicializa matriz 115x115 com 9999 (infinito)
+// Inicializa matriz 117x117 com 999999 (infinito)
 let matrix = Array(numNodes)
   .fill()
-  .map(() => Array(numNodes).fill(9999));
+  .map(() => Array(numNodes).fill(999999));
 
 // Preenche a diagonal com 0
 for (let i = 0; i < numNodes; i++) {
@@ -60,11 +60,11 @@ for (let i = 0; i < numNodes; i++) {
 let fileContent = `${numNodes}\n`;
 
 matrix.forEach((row) => {
-  fileContent += row.join("\t") + "\n";
+  fileContent += row.join("\t") + " -1\n";
 });
 
 fileContent += "-1";
 
-fs.writeFileSync("DistSAMU_115.txt", fileContent);
+fs.writeFileSync("DistSAMU.txt", fileContent);
 
-console.log("Arquivo DistSAMU_115.txt gerado com sucesso!");
+console.log("Arquivo gerado com sucesso!");

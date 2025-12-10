@@ -25,7 +25,7 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 function App() {
-  const [accident, setAccident] = useState<Accident | null>(null);
+  //const [accident, setAccident] = useState<Accident | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [path, setPath] = useState<LatLngTuple[]>([]);
   const [nearestHospital, setNearestHospital] = useState<LatLngTuple>();
@@ -58,11 +58,9 @@ function App() {
     ];
     const coordPath = vertexToCoordPath(vertexIndices, COORDS as LatLngTuple[]);
 
-    console.log(accident);
-
-    setSelectedIndex(data.ocourrenceVertex);
-    setAccident(data);
-    setOcurrenceVertex(COORDS[data.ocourrenceVertex] as LatLngTuple);
+    setSelectedIndex(data.ocurrenceVertex);
+    //setAccident(data);
+    setOcurrenceVertex(COORDS[data.ocurrenceVertex] as LatLngTuple);
     setNearestHospital(COORDS[data.hospitalVertex] as LatLngTuple);
     setPath(coordPath);
     setRouteAccidentIndex(accidentIndexInRoute);
