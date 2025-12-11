@@ -10,8 +10,8 @@ export interface Accident {
   executionTimeMillis: number;
 }
 
-const apiURL = "https://uern-projeto-rotas-samu.onrender.com/api/rota-completa";
-const vertexApiURL = "https://uern-projeto-rotas-samu.onrender.com/api/calcular-rota-completa";
+const apiURL = "https://backend-rotas-samu.onrender.com/api/rota-completa-aleatoria";
+const vertexApiURL = "https://backend-rotas-samu.onrender.com/api/rota-completa-selecionada";
 
 export async function fetchOcurrence(): Promise<Accident> {
   try {
