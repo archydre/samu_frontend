@@ -43,7 +43,7 @@ export default function Header({
                 Sistema Inteligente
               </span>
               <h1 className="text-base font-bold text-gray-900 leading-tight truncate tracking-tight">
-                Otimizador de Rotas
+                Otimizador De Rotas
               </h1>
             </div>
           </div>
